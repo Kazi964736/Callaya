@@ -1,0 +1,24 @@
+# Builds an installable Android APK on Codemagic (free tier is enough).
+# Push this folder to a GitHub repo, add the repo in Codemagic, start "Call Aaya – test APK".
+workflows:
+  android-apk:
+    name: Call Aaya – test APK
+    max_build_duration: 30
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+    scripts:
+      - name: Create the Android project files
+        script: |
+          flutter create --org com.callaaya --platforms android --project-name call_aaya .
+          rm -f test/widget_test.dart
+      - name: Switch on desugaring for notifications
+        script: python3 tool/prepare_android.py
+      - name: Get packages
+        script: flutter pub get
+      - name: Check the code
+        script: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Build the APK
+        script: flutter build apk --release
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
