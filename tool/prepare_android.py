@@ -35,5 +35,37 @@ if "CoreLibraryDesugaringEnabled" not in text and "coreLibraryDesugaringEnabled"
 if "desugar_jdk_libs" not in text:
     text += "\ndependencies {\n    " + dep + "\n}\n"
 
+# Release builds shrink the code (R8). Keep the classes flutter_local_notifications
+# reads back through Gson, otherwise the app can crash on start-up or when scheduling.
+RULES = """# flutter_local_notifications + Gson (needed for release builds)
+-keep class com.dexterous.** { *; }
+-keep class com.google.gson.reflect.TypeToken
+-keep class * extends com.google.gson.reflect.TypeToken
+-keep class com.google.gson.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
+-keepattributes EnclosingMethod
+-keepattributes InnerClasses
+"""
+(app / "proguard-rules.pro").write_text(RULES)
+
+if "proguard-rules.pro" not in text:
+    if path is kts:
+        line = 'proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")'
+    else:
+        line = "proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'"
+    m = re.search(r"buildTypes\s*\{", text)
+    rel = re.compile(r"release\s*\{")
+    r = rel.search(text, m.end()) if m else None
+    if r:
+        text = text[: r.end()] + "\n            " + line + text[r.end():]
+    else:
+        text = re.sub(
+            r"android\s*\{",
+            "android {\n    buildTypes {\n        release {\n            " + line + "\n        }\n    }",
+            text,
+            count=1,
+        )
+
 path.write_text(text)
-print(f"Desugaring enabled in {path.relative_to(app.parent.parent)}")
+print(f"Desugaring and keep-rules set up in {path.relative_to(app.parent.parent)}")
